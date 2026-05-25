@@ -55,6 +55,13 @@ export async function handleGithubWebhook(params: {
     return handleIssueLabeled(params.payload);
   }
 
+  if (
+    params.event === "issues" &&
+    ["edited", "closed", "reopened"].includes(action)
+  ) {
+    return handleIssueChanged(params.payload);
+  }
+
   if (params.event === "pull_request" && action === "closed") {
     return handlePullRequestClosed(params.payload);
   }
@@ -96,6 +103,40 @@ async function upsertRepository(payload: GithubWebhookPayload) {
   });
 }
 
+function getIssueMetadata(issue: GithubWebhookPayload["issue"]) {
+  return {
+    issueNodeId: textOrNull(issue?.node_id),
+    issueTitle: textOrNull(issue?.title),
+    issueUrl: textOrNull(issue?.html_url),
+    issueState: textOrNull(issue?.state),
+    issueBodyExcerpt: excerptOrNull(issue?.body),
+    issueCreatedAt: dateOrNull(issue?.created_at),
+    issueUpdatedAt: dateOrNull(issue?.updated_at),
+  };
+}
+
+function textOrNull(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function dateOrNull(value: unknown) {
+  if (typeof value !== "string" || !value.trim()) return null;
+
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function excerptOrNull(value: unknown) {
+  if (typeof value !== "string") return null;
+
+  const normalized = value.replace(/\s+/g, " ").trim();
+  if (!normalized) return null;
+
+  return normalized.length > 260
+    ? `${normalized.slice(0, 257).trimEnd()}...`
+    : normalized;
+}
+
 async function handleIssueLabeled(payload: GithubWebhookPayload) {
   const parsed = parseBountyLabel(payload.label?.name ?? "");
   if (!parsed) {
@@ -110,6 +151,7 @@ async function handleIssueLabeled(payload: GithubWebhookPayload) {
   }
 
   const repository = await upsertRepository(payload);
+  const issueMetadata = getIssueMetadata(payload.issue);
   const bounty = await prisma.bounty.upsert({
     where: {
       repositoryId_issueNumber_labelName: {
@@ -122,14 +164,15 @@ async function handleIssueLabeled(payload: GithubWebhookPayload) {
       amount: parsed.amount,
       currency: parsed.currency,
       status: "OPEN",
+      ...issueMetadata,
     },
     create: {
       repositoryId: repository.id,
       issueNumber: payload.issue.number,
-      issueNodeId: payload.issue.node_id,
       labelName: parsed.raw,
       amount: parsed.amount,
       currency: parsed.currency,
+      ...issueMetadata,
     },
   });
 
@@ -154,6 +197,44 @@ async function handleIssueLabeled(payload: GithubWebhookPayload) {
   });
 
   return { bountyId: bounty.id };
+}
+
+async function handleIssueChanged(payload: GithubWebhookPayload) {
+  const repository = payload.repository;
+  const issueNumber = payload.issue?.number;
+
+  if (!repository?.owner?.login || !repository?.name || !issueNumber) {
+    return { ignored: true };
+  }
+
+  const installation = await prisma.repositoryInstallation.findUnique({
+    where: {
+      owner_repo: {
+        owner: repository.owner.login,
+        repo: repository.name,
+      },
+    },
+  });
+
+  if (!installation) {
+    return { ignored: true };
+  }
+
+  const result = await prisma.bounty.updateMany({
+    where: {
+      repositoryId: installation.id,
+      issueNumber,
+    },
+    data: getIssueMetadata(payload.issue),
+  });
+
+  console.log("[github-webhook] issue metadata synced", {
+    repository: repository.full_name,
+    issueNumber,
+    bountyCount: result.count,
+  });
+
+  return { updated: result.count };
 }
 
 async function handlePullRequestClosed(payload: GithubWebhookPayload) {
