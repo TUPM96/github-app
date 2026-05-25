@@ -17,7 +17,10 @@ async function loadBountyIssues(): Promise<DiscoveryIssue[]> {
       },
       orderBy: [
         {
-          issueUpdatedAt: "desc",
+          issueUpdatedAt: {
+            sort: "desc",
+            nulls: "last",
+          },
         },
         {
           updatedAt: "desc",
@@ -42,7 +45,10 @@ async function loadBountyIssues(): Promise<DiscoveryIssue[]> {
         issueUrl,
         amount: Number(bounty.amount),
         currency: bounty.currency,
-        status: bounty.issueState ?? bounty.status,
+        status:
+          bounty.status === "OPEN"
+            ? (bounty.issueState ?? bounty.status)
+            : bounty.status,
         createdAt: createdAt.toISOString(),
         updatedAt: updatedAt.toISOString(),
         excerpt: bounty.issueBodyExcerpt,

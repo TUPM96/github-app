@@ -207,7 +207,7 @@ async function handleIssueChanged(payload: GithubWebhookPayload) {
     return { ignored: true };
   }
 
-  const installation = await prisma.repositoryInstallation.findUnique({
+  const repositoryInstallation = await prisma.repositoryInstallation.findUnique({
     where: {
       owner_repo: {
         owner: repository.owner.login,
@@ -216,13 +216,13 @@ async function handleIssueChanged(payload: GithubWebhookPayload) {
     },
   });
 
-  if (!installation) {
+  if (!repositoryInstallation) {
     return { ignored: true };
   }
 
   const result = await prisma.bounty.updateMany({
     where: {
-      repositoryId: installation.id,
+      repositoryId: repositoryInstallation.id,
       issueNumber,
     },
     data: getIssueMetadata(payload.issue),

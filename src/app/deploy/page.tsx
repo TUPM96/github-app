@@ -11,11 +11,11 @@ const flowSteps = [
 ];
 
 const localSetupCommands = [
-  "cd /Users/Projects/Javascript/paytrack/sdks/node",
+  "cd /path/to/pvium-sdk",
   "npm install",
   "npm run build",
   "",
-  "cd /Users/Projects/Javascript/paytrack/github-app",
+  "cd /path/to/github-app",
   "npm install",
   "cp .env.example .env",
   "npm run prisma:generate",
@@ -162,13 +162,9 @@ export default function Home() {
 
       <Section title="Local Setup">
         <p style={styles.paragraph}>
-          The reward automation uses the local Pvium SDK at{" "}
-          <code style={styles.inlineCode}>
-            /Users/Projects/Javascript/paytrack/sdks/node
-          </code>
-          . The package points <code style={styles.inlineCode}>@pvium/sdk</code>{" "}
-          at <code style={styles.inlineCode}>file:../sdks/node</code>, so
-          rebuild the SDK after changing it.
+          The reward automation uses <code style={styles.inlineCode}>@pvium/sdk</code>.
+          When testing local SDK changes, rebuild your SDK checkout first and
+          then run the app from this repository.
         </p>
         <CodeBlock value={localSetupCommands.join("\n")} />
       </Section>

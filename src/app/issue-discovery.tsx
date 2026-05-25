@@ -97,7 +97,7 @@ export default function IssueDiscovery({
       </section>
 
       <section style={styles.toolbar} aria-label="Issue controls">
-        <div style={styles.tabs} role="tablist" aria-label="Issue views">
+        <div style={styles.tabs} aria-label="Issue views">
           <TabButton
             active={viewMode === "recent"}
             label="Recent Issues"
@@ -153,9 +153,8 @@ function TabButton({
 }) {
   return (
     <button
-      aria-selected={active}
+      aria-pressed={active}
       onClick={onClick}
-      role="tab"
       style={active ? { ...styles.tab, ...styles.activeTab } : styles.tab}
       type="button"
     >
